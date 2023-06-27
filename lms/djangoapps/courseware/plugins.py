@@ -267,3 +267,47 @@ class CustomPagesCourseApp(CourseApp):
     @staticmethod
     def legacy_link(course_key: CourseKey):
         return urls.reverse('tabs_handler', kwargs={'course_key_string': course_key})
+
+
+class OpenResponsesApp(CourseApp):
+    """
+    Course App config for ORA app.
+    """
+
+    app_id = "open_responses"
+    name = _("Open Responses")
+    description = _("Turn on flexible peer grading for all open responses.")
+    documentation_links = {
+        "learn_more_configuration": settings.OPEN_RESPONSES_HELP_URL,
+    }
+
+    @classmethod
+    def is_available(cls, course_key: CourseKey) -> bool:
+        """
+        Open response is available for all courses.
+        """
+        return True
+
+    @classmethod
+    def is_enabled(cls, course_key: CourseKey) -> bool:
+        """
+        Get open response enabled status from course overview model.
+        """
+        return False
+
+    @classmethod
+    def set_enabled(cls, course_key: CourseKey, enabled: bool, user: 'User') -> bool:
+        """
+        Update open response enabled status in modulestore.
+        """
+        return enabled
+
+    @classmethod
+    def get_allowed_operations(cls, course_key: CourseKey, user: Optional[User] = None) -> Dict[str, bool]:
+        """
+        Get allowed operations for open response app.
+        """
+        return {
+            "enable": False,
+            "configure": True,
+        }

@@ -94,6 +94,7 @@ setup(
             "wiki = lms.djangoapps.course_wiki.plugins.course_app:WikiCourseApp",
             "custom_pages = lms.djangoapps.courseware.plugins:CustomPagesCourseApp",
             "live = openedx.core.djangoapps.course_live.plugins:LiveCourseApp",
+            "open_responses = lms.djangoapps.courseware.plugins:OpenResponsesApp",
         ],
         "openedx.course_tool": [
             "calendar_sync_toggle = openedx.features.calendar_sync.plugins:CalendarSyncToggleTool",
