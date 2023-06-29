@@ -39,7 +39,7 @@ class EnrollmentUtilsTest(TestCase):
 
     def test_validation_of_inputs_course_id(self):
         with self.assertRaises(CourseIdMissingException):
-            lms_update_or_create_enrollment(USERNAME, None, COURSE_MODE, ENTERPRISE_UUID)
+            lms_update_or_create_enrollment(USERNAME, None, COURSE_MODE, True, ENTERPRISE_UUID)
 
     def test_validation_of_inputs_user_not_provided(self):
         with self.assertRaises(UserDoesNotExistException):
@@ -60,6 +60,7 @@ class EnrollmentUtilsTest(TestCase):
                 USERNAME,
                 COURSE_ID,
                 COURSE_MODE,
+                True,
                 ENTERPRISE_UUID,
             )
 
@@ -84,7 +85,7 @@ class EnrollmentUtilsTest(TestCase):
         mock_user_model.return_value = self.a_user
 
         with self.assertRaises(CourseEnrollmentError):
-            lms_update_or_create_enrollment(USERNAME, COURSE_ID, COURSE_MODE, ENTERPRISE_UUID)
+            lms_update_or_create_enrollment(USERNAME, COURSE_ID, COURSE_MODE, True, ENTERPRISE_UUID)
             mock_get_enrollment_api.assert_called_once()
 
     @mock.patch('openedx.features.enterprise_support.enrollments.utils.enrollment_api.add_enrollment')
@@ -108,7 +109,7 @@ class EnrollmentUtilsTest(TestCase):
         mock_user_model.return_value = self.a_user
 
         with self.assertRaises(CourseUserGroup.DoesNotExist):
-            lms_update_or_create_enrollment(USERNAME, COURSE_ID, COURSE_MODE, ENTERPRISE_UUID)
+            lms_update_or_create_enrollment(USERNAME, COURSE_ID, COURSE_MODE, True, ENTERPRISE_UUID)
             mock_get_enrollment_api.assert_called_once()
 
     @mock.patch('openedx.features.enterprise_support.enrollments.utils.enrollment_api.add_enrollment')
@@ -133,7 +134,7 @@ class EnrollmentUtilsTest(TestCase):
 
         mock_user_model.return_value = self.a_user
 
-        response = lms_update_or_create_enrollment(USERNAME, COURSE_ID, COURSE_MODE, ENTERPRISE_UUID)
+        response = lms_update_or_create_enrollment(USERNAME, COURSE_ID, COURSE_MODE, True, ENTERPRISE_UUID)
 
         assert response == expected_response
         mock_add_enrollment_api.assert_called_once_with(
@@ -167,7 +168,7 @@ class EnrollmentUtilsTest(TestCase):
 
         mock_user_model.return_value = self.a_user
 
-        response = lms_update_or_create_enrollment(USERNAME, COURSE_ID, COURSE_MODE, ENTERPRISE_UUID)
+        response = lms_update_or_create_enrollment(USERNAME, COURSE_ID, COURSE_MODE, True, ENTERPRISE_UUID)
 
         assert response == expected_response
         mock_add_enrollment_api.assert_called_once_with(
@@ -207,7 +208,7 @@ class EnrollmentUtilsTest(TestCase):
         mock_user_model.return_value = self.a_user
 
         upgraded_enrollment = lms_update_or_create_enrollment(
-            USERNAME, COURSE_ID, 'verified'
+            USERNAME, COURSE_ID, 'verified', True
         )
 
         assert upgraded_enrollment is None

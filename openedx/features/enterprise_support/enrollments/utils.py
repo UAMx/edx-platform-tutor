@@ -26,8 +26,8 @@ def lms_update_or_create_enrollment(
     username,
     course_id,
     desired_mode,
+    is_active,
     enterprise_uuid=None,
-    is_active=True,
 ):
     """
     Update or create the user's course enrollment based on the existing enrollment mode.
@@ -46,9 +46,9 @@ def lms_update_or_create_enrollment(
      - username (str): User name
      - course_id (obj) : Course key obtained using CourseKey.from_string(course_id_input)
      - desired_mode (CourseMode): desired course mode
-     - enterprise_uuid (str): Optional. id to identify the enterprise to enroll under
-     - is_active (bool): Optional. A Boolean value that indicates whether the
+     - is_active (bool): A Boolean value that indicates whether the
         enrollment is to be set to inactive (if False). Usually we want a True if enrolling anew.
+     - enterprise_uuid (str): Optional. id to identify the enterprise to enroll under
 
     Returns: A serializable dictionary of the new course enrollment. If it hits
      `CourseEnrollmentExistsError` then it logs the error and returns None.
