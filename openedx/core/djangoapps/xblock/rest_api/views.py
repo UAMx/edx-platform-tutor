@@ -5,8 +5,10 @@ Note that these views are only for interacting with existing blocks. Other
 Studio APIs cover use cases like adding/deleting/editing blocks.
 """
 
+from common.djangoapps.util.json_request import JsonResponse, expect_json
 from corsheaders.signals import check_request_enabled
 from django.contrib.auth import get_user_model
+from django.db.transaction import atomic
 from django.http import Http404
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import csrf_exempt
@@ -14,12 +16,15 @@ from rest_framework import permissions
 from rest_framework.decorators import api_view, permission_classes  # lint-amnesty, pylint: disable=unused-import
 from rest_framework.exceptions import PermissionDenied, AuthenticationFailed, NotFound
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from xblock.django.request import DjangoWebobRequest, webob_to_django_response
+from xblock.fields import Scope
 
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import UsageKey
 from openedx.core.lib.api.view_utils import view_auth_classes
 from ..api import (
+    get_block_display_name,
     get_block_metadata,
     get_handler_url as _get_handler_url,
     load_block,
@@ -168,3 +173,26 @@ def cors_allow_xblock_handler(sender, request, **kwargs):  # lint-amnesty, pylin
 
 
 check_request_enabled.connect(cors_allow_xblock_handler)
+
+
+@view_auth_classes()
+class BlockFieldsView(APIView):
+
+    @atomic
+    def get(self, request, usage_key_str):
+        try:
+            usage_key = UsageKey.from_string(usage_key_str)
+        except InvalidKeyError as e:
+            raise NotFound(invalid_not_found_fmt.format(usage_key=usage_key_str)) from e
+
+        block = load_block(usage_key, request.user)
+        block_dict = {
+            "display_name": get_block_display_name(block),
+            "data": block.data,
+            "metadata": block.get_explicitly_set_fields_by_scope(Scope.settings),
+        }
+        return JsonResponse(block_dict)
+
+    @atomic
+    def post(self, request, usage_key_str):
+        pass
