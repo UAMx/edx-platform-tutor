@@ -54,6 +54,6 @@ class InvalidEnrollmentAttribute(CourseEnrollmentError):
     pass  # lint-amnesty, pylint: disable=unnecessary-pass
 
 
-class EnrollmentNotUpgradableError(CourseEnrollmentError):
-    """The requested enrollment could not be upgraded."""
+class EnrollmentNotUpdatableError(CourseEnrollmentError):
+    """The requested enrollment could not be updated."""
     pass  # lint-amnesty, pylint: disable=unnecessary-pass

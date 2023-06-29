@@ -11,7 +11,7 @@ from openedx.core.djangoapps.enrollments import api as enrollment_api
 from openedx.core.djangoapps.enrollments.errors import (
     CourseEnrollmentError,
     CourseEnrollmentExistsError,
-    EnrollmentNotUpgradableError,
+    EnrollmentNotUpdatableError,
 )
 from openedx.core.lib.log_utils import audit_log
 from openedx.features.enterprise_support.enrollments.exceptions import (
@@ -58,7 +58,10 @@ def lms_update_or_create_enrollment(
 
     with transaction.atomic():
         try:
-            if current_enrollment and current_enrollment['mode'] != desired_mode:
+            if current_enrollment and (
+                current_enrollment['mode'] != desired_mode
+                or current_enrollment['is_active'] != is_active
+            ):
                 response = enrollment_api.update_enrollment(
                     username,
                     str(course_id),
@@ -66,14 +69,17 @@ def lms_update_or_create_enrollment(
                     is_active=is_active,
                     enrollment_attributes=None,
                 )
-                if not response or response['mode'] != desired_mode:
+                if not response or (
+                    response['mode'] != desired_mode or
+                    response['is_active'] != is_active
+                ):
                     log.exception(
                         "An error occurred while updating the new course enrollment for user "
                         "[%s] in course run [%s]",
                         username,
                         course_id,
                     )
-                    raise EnrollmentNotUpgradableError(
+                    raise EnrollmentNotUpdatableError(
                         f"Unable to upgrade enrollment for user {username} in course {course_id} "
                         "to {desired_mode} mode."
                     )
@@ -98,9 +104,13 @@ def lms_update_or_create_enrollment(
                         f"Unable to create enrollment for user {username} in course {course_id}."
                     )
         except CourseEnrollmentExistsError:
-            log.info('The user [%s]\'s enrollment in course run [%s] already exists.', username, course_id)
+            log.info(
+                "The enrollment for user [%s] in course run [%s] already exists.",
+                username,
+                course_id,
+            )
             return None
-        except (CourseEnrollmentError, EnrollmentNotUpgradableError) as error:
+        except (CourseEnrollmentError, EnrollmentNotUpdatableError) as error:
             log.exception("An error occurred while creating the new course enrollment for user "
                           "[%s] in course run [%s]", username, course_id)
             raise error
