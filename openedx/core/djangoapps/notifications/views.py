@@ -4,7 +4,8 @@ Views for the notifications API.
 from datetime import datetime, timedelta
 
 from django.conf import settings
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext as _
 from opaque_keys.edx.keys import CourseKey
@@ -284,9 +285,9 @@ class NotificationCountView(APIView):
         # Get the unseen notifications count for each app name.
         count_by_app_name = (
             Notification.objects
-            .filter(user_id=request.user, last_seen__isnull=True)
+            .filter(user_id=request.user)
             .values('app_name')
-            .annotate(count=Count('*'))
+            .annotate(count=Coalesce(Count('id', filter=Q(last_seen__isnull=True)), 0))
         )
         count_total = 0
         count_by_app_name_dict = {}
