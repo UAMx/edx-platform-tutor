@@ -3,6 +3,7 @@ Tests for the views in the notifications app.
 """
 import json
 from datetime import datetime, timedelta
+from unittest import mock
 
 import ddt
 from django.conf import settings
@@ -217,7 +218,8 @@ class UserNotificationPreferenceAPITest(ModuleStoreTestCase):
         response = self.client.get(self.path)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_get_user_notification_preference(self):
+    @mock.patch("eventtracking.tracker.emit")
+    def test_get_user_notification_preference(self, mock_emit):
         """
         Test get user notification preference.
         """
@@ -225,6 +227,8 @@ class UserNotificationPreferenceAPITest(ModuleStoreTestCase):
         response = self.client.get(self.path)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, self._expected_api_response())
+        event_name, event_data = mock_emit.call_args[0]
+        self.assertEqual(event_name, 'edx.notifications.preferences.viewed')
 
     @ddt.data(
         ('discussion', None, None, True, status.HTTP_200_OK, 'app_update'),

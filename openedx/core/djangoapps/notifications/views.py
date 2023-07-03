@@ -22,6 +22,7 @@ from openedx.core.djangoapps.notifications.models import (
 
 from .base_notification import COURSE_NOTIFICATION_APPS
 from .config.waffle import ENABLE_NOTIFICATIONS, SHOW_NOTIFICATIONS_TRAY
+from .events import notification_preferences_viewed
 from .models import Notification
 from .serializers import (
     NotificationCourseEnrollmentSerializer,
@@ -163,6 +164,7 @@ class UserNotificationPreferenceView(APIView):
         course_id = CourseKey.from_string(course_key_string)
         user_preference = CourseNotificationPreference.get_updated_user_course_preferences(request.user, course_id)
         serializer = UserCourseNotificationPreferenceSerializer(user_preference)
+        notification_preferences_viewed(request, course_id)
         return Response(serializer.data)
 
     def patch(self, request, course_key_string):
