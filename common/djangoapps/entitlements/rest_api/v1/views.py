@@ -31,6 +31,7 @@ from common.djangoapps.student.models import AlreadyEnrolledError, CourseEnrollm
 from openedx.core.djangoapps.catalog.utils import get_course_runs_for_course, get_owners_for_course
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.cors_csrf.authentication import SessionAuthenticationCrossDomainCsrf
+from openedx.core.djangoapps.credentials.utils import get_course_completion_status
 from openedx.core.djangoapps.enrollments.api import update_enrollment
 from openedx.core.djangoapps.user_api.preferences.api import update_email_opt_in
 
@@ -90,24 +91,25 @@ def _process_revoke_and_unenroll_entitlement(course_entitlement, is_refund=False
 
 @transaction.atomic
 def _process_revoke_and_move_to_audit(course_entitlement, mode, user):
+    """
+    TODO: add this later
+    """
     if course_entitlement.enrollment_course_run is not None:
+        # This is not a uuid but the course key in the format of course-v1:edX+DemoX+Demo_Course
         course_id = course_entitlement.enrollment_course_run.course_id
-        course_enrollment = CourseEnrollment.objects.get(course_id=course_id)
-        course_key = course_enrollment.course.id
-        if course_key in get_course_completion_status(user.id, [course_key]):
+        enrollment_mode = course_entitlement.enrollment_course_run.mode
+        if course_id in get_course_completion_status(user.id, [course_id]):
             log.info('User [%s] has already completed course [%s], not proceeding with revoke', user.username, course_id)
             return
-        if course_enrollment.mode == mode:
-            update_enrollment(user.username, course_id, 'audit', include_expired=True)
+        if enrollment_mode == mode:
+            update_enrollment(user.username, str(course_id), 'audit', include_expired=True)
             log.info(
-                '[b2c-subscriptions] Course enrollment updated for user [%s] in course [%s] to mode [%s]',
+                '[b2c-subscriptions] Course enrollment updated for user [%s] in course [%s] to mode audit',
                 course_entitlement.user.username,
-                course_id,
-                'audit'
+                course_id
             )
 
     if course_entitlement.expired_at is None:
-
         course_entitlement.expire_entitlement()
         log.info(
             '[b2c-subscriptions] Set expired_at to [%s] for course entitlement [%s]',
@@ -566,27 +568,29 @@ class RevokeVerifiedAccessView(generics.DestroyAPIView):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = CourseEntitlementFilter
     pagination_class = EntitlementsPagination
-    throttle_classes = (ServiceUserThrottle)
+    throttle_classes = (ServiceUserThrottle,)
 
-    def get_queryset(self):
-        lookup_field_value = self.kwargs.get('uuid')
-        queryset = CourseEntitlement.objects.filter(uuid=lookup_field_value)
+    def get_queryset(self, uuid):
+        queryset = CourseEntitlement.objects.filter(uuid=uuid)
         return queryset.select_related('user').select_related('enrollment_course_run')
 
     def destroy(self, request, uuid):
         """
         TODO: add this later
         """
+        # This is the current mode of enrollment
         course_mode = request.query_params.get('mode', 'verified')
-        queryset = self.get_queryset()
+        queryset = self.get_queryset(uuid)
         if len(queryset) > 1:
             queryset = queryset.filter(order_num__isnull=True, mode=course_mode)
 
         if queryset.exists():
             instance = queryset.first()
-            entilement_user = instance.first().user
+            entilement_user = instance.user
             _process_revoke_and_move_to_audit(instance, course_mode, entilement_user)
             return Response(status=status.HTTP_204_NO_CONTENT)
         else:
-            log.info("User matching entitlement doesn't exists for uuid: %s for mode: %s and with order_num as null", uuid)
+            log.info("Entitlement doesn't exists for uuid: %s for mode: %s and with order_num as null",
+                     uuid,
+                     course_mode)
             return Response(status=status.HTTP_404_NOT_FOUND)

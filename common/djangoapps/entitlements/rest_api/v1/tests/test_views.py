@@ -1,12 +1,12 @@
 """
 Test file to test the Entitlement API Views.
 """
-
 import json
 import logging
 import uuid
 from datetime import datetime, timedelta
 from unittest.mock import patch
+from uuid import uuid4
 
 from django.conf import settings
 from django.urls import reverse
@@ -24,17 +24,22 @@ from openedx.core.djangoapps.content.course_overviews.tests.factories import Cou
 from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
 from openedx.core.djangoapps.user_api.models import UserOrgTag
 from openedx.core.djangolib.testing.utils import skip_unless_lms
-from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase  # lint-amnesty, pylint: disable=wrong-import-order
+from xmodule.modulestore.tests.django_utils import \
+    ModuleStoreTestCase  # lint-amnesty, pylint: disable=wrong-import-order
 from xmodule.modulestore.tests.factories import CourseFactory  # lint-amnesty, pylint: disable=wrong-import-order
 
 log = logging.getLogger(__name__)
 
 # Entitlements is not in CMS' INSTALLED_APPS so these imports will error during test collection
 if settings.ROOT_URLCONF == 'lms.urls':
-    from common.djangoapps.entitlements.tests.factories import CourseEntitlementFactory
-    from common.djangoapps.entitlements.models import CourseEntitlement, CourseEntitlementPolicy, CourseEntitlementSupportDetail  # lint-amnesty, pylint: disable=line-too-long
+    from common.djangoapps.entitlements.models import (  # lint-amnesty, pylint: disable=line-too-long
+        CourseEntitlement,
+        CourseEntitlementPolicy,
+        CourseEntitlementSupportDetail
+    )
     from common.djangoapps.entitlements.rest_api.v1.serializers import CourseEntitlementSerializer
     from common.djangoapps.entitlements.rest_api.v1.views import set_entitlement_policy
+    from common.djangoapps.entitlements.tests.factories import CourseEntitlementFactory
 
 
 @skip_unless_lms
@@ -1231,3 +1236,106 @@ class EntitlementEnrollmentViewSetTest(ModuleStoreTestCase):
         assert CourseEnrollment.is_enrolled(self.user, self.course.id)
         assert course_entitlement.enrollment_course_run is not None
         assert course_entitlement.expired_at is None
+
+
+@skip_unless_lms
+class RevokeVerifiedAccessViewTest(ModuleStoreTestCase):
+    REVOKE_VERIFIED_ACCESS_PATH = 'entitlements_api:v1:revoke_verified_access'
+
+    def setUp(self):
+        super().setUp()
+        self.user = UserFactory(is_staff=True)
+        self.client.login(username=self.user.username, password=TEST_PASSWORD)
+        self.course = CourseFactory()
+        self.course_mode1 = CourseModeFactory(
+            course_id=self.course.id,  # pylint: disable=no-member
+            mode_slug=CourseMode.VERIFIED,
+            expiration_datetime=now() + timedelta(days=1)
+        )
+        self.course_mode2 = CourseModeFactory(
+            course_id=self.course.id,  # pylint: disable=no-member
+            mode_slug=CourseMode.AUDIT,
+            expiration_datetime=now() + timedelta(days=1)
+        )
+
+    @patch('openedx.core.djangoapps.credentials.utils.get_course_completion_status')
+    def test_revoke_access_success(self, mock_get_course_completion_status):
+        mock_get_course_completion_status.return_value = []
+        enrollment = CourseEnrollmentFactory.create(
+            user=self.user,
+            course_id=self.course.id,  # pylint: disable=no-member
+            is_active=True,
+            mode=CourseMode.VERIFIED
+        )
+        course_entitlement = CourseEntitlementFactory.create(user=self.user, enrollment_course_run=enrollment)
+        url = reverse(self.REVOKE_VERIFIED_ACCESS_PATH, args=[str(course_entitlement.uuid)])
+
+        assert course_entitlement.enrollment_course_run is not None
+
+        response = self.client.delete(
+            url,
+            content_type='application/json',
+        )
+        assert response.status_code == 204
+
+        course_entitlement.refresh_from_db()
+        assert course_entitlement.expired_at is not None
+        assert course_entitlement.enrollment_course_run.mode == CourseMode.AUDIT
+
+    @patch('common.djangoapps.entitlements.rest_api.v1.views.get_course_completion_status')
+    def test_already_completed_course(self, mock_get_course_completion_status):
+        enrollment = CourseEnrollmentFactory.create(
+            user=self.user,
+            course_id=self.course.id,  # pylint: disable=no-member
+            is_active=True,
+            mode=CourseMode.VERIFIED
+        )
+        mock_get_course_completion_status.return_value = [enrollment.course_id]
+        course_entitlement = CourseEntitlementFactory.create(user=self.user, enrollment_course_run=enrollment)
+        url = reverse(self.REVOKE_VERIFIED_ACCESS_PATH, args=[str(course_entitlement.uuid)])
+
+        assert course_entitlement.enrollment_course_run is not None
+
+        response = self.client.delete(
+            url,
+            content_type='application/json',
+        )
+        assert response.status_code == 204
+
+        course_entitlement.refresh_from_db()
+        assert course_entitlement.expired_at is None
+        assert course_entitlement.enrollment_course_run.mode == CourseMode.VERIFIED
+
+    def test_revoke_access_invalid_uuid(self):
+        # Construct an invalid UUID that does not exist
+        invalid_uuid = str(uuid4())
+
+        url = reverse(self.REVOKE_VERIFIED_ACCESS_PATH, args=[invalid_uuid])
+        response = self.client.delete(url)
+
+        assert response.status_code == 404
+
+    def test_revoke_access_unauthorized_user(self):
+        user = UserFactory(is_staff=False)
+        self.client.login(username=user.username, password=TEST_PASSWORD)
+
+        enrollment = CourseEnrollmentFactory.create(
+            user=self.user,
+            course_id=self.course.id,  # pylint: disable=no-member
+            is_active=True,
+            mode=CourseMode.VERIFIED
+        )
+        course_entitlement = CourseEntitlementFactory.create(user=self.user, enrollment_course_run=enrollment)
+        url = reverse(self.REVOKE_VERIFIED_ACCESS_PATH, args=[str(course_entitlement.uuid)])
+
+        assert course_entitlement.enrollment_course_run is not None
+
+        response = self.client.delete(
+            url,
+            content_type='application/json',
+        )
+        assert response.status_code == 403
+
+        course_entitlement.refresh_from_db()
+        assert course_entitlement.expired_at is None
+        assert course_entitlement.enrollment_course_run.mode == CourseMode.VERIFIED
