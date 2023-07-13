@@ -1120,7 +1120,6 @@ typing-extensions==4.5.0
     #   django-countries
     #   pylti1p3
     #   snowflake-connector-python
-ubcpi-xblock==1.0.0
 unicodecsv==0.14.1
     # via
     #   -r requirements/edx/base.in
