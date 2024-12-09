@@ -63,7 +63,7 @@ class UnitTestLibraries(CourseTestCase):
 
     # When creator group is disabled, non-staff users can create libraries
     @mock.patch("cms.djangoapps.contentstore.views.library.LIBRARIES_ENABLED", True)
-    def test_library_creator_status_with_no_course_creator_role(self):
+    def test_library_creator_status_with_course_staff_role_for_enabled_creator_group_setting(self):
         _, nostaff_user = self.create_non_staff_authed_user_client()
         self.assertEqual(user_can_create_library(nostaff_user, 'An Org'), True)
 

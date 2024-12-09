@@ -1297,6 +1297,7 @@ python3-saml==1.16.0
     # via -r requirements/edx/base.txt
 pytz==2024.1
     # via
+    #   -c requirements/edx/../constraints.txt
     #   -r requirements/edx/base.txt
     #   babel
     #   django-ses
