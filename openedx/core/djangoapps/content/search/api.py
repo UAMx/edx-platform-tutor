@@ -508,15 +508,15 @@ def rebuild_index(status_cb: Callable[[str], None] | None = None, incremental=Fa
             # Pre-fetch the course with all of its children:
             course = store.get_course(course.id, depth=None)
 
-            def add_with_children(block):
-                """ Recursively index the given XBlock/component """
-                doc = searchable_doc_for_course_block(block)
-                doc.update(searchable_doc_tags(block.usage_key))
-                docs.append(doc)  # pylint: disable=cell-var-from-loop
-                _recurse_children(block, add_with_children)  # pylint: disable=cell-var-from-loop
+                def add_with_children(block):
+                    """ Recursively index the given XBlock/component """
+                    doc = searchable_doc_for_course_block(block)
+                    doc.update(searchable_doc_tags(block.usage_key))
+                    docs.append(doc)  # pylint: disable=cell-var-from-loop
+                    _recurse_children(block, add_with_children)  # pylint: disable=cell-var-from-loop
 
-            # Index course children
-            _recurse_children(course, add_with_children)
+                # Index course children
+                _recurse_children(course, add_with_children)
 
             if docs:
                 # Add all the docs in this course at once (usually faster than adding one at a time):
