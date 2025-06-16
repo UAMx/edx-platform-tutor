@@ -75,6 +75,7 @@ Custom Attributes:
         that failed when processing the response. See SafeSessionMiddleware._verify_user_and_log_mismatch
 """
 
+import urllib
 import inspect
 from hashlib import sha1, sha256
 from logging import getLogger
@@ -379,7 +380,10 @@ class SafeSessionMiddleware(SessionMiddleware, MiddlewareMixin):
         if cookie_data_string:
 
             try:
-                safe_cookie_data = SafeCookieData.parse(cookie_data_string)  # Step 1
+                # UAMX: "unparse" cookie with unquote_plus as we have already parsed before 
+                # to prevent errors with character ":" in this cookie, as it breaks Sede Electrónica
+                # See https://trello.com/c/W2nRrZFt/110-escapar-las-comillas-en-edx-platform 
+                safe_cookie_data = SafeCookieData.parse(urllib.parse.unquote_plus(cookie_data_string))  # Step 1
 
             except SafeCookieError:
                 # For security reasons, we don't support requests with
@@ -387,7 +391,10 @@ class SafeSessionMiddleware(SessionMiddleware, MiddlewareMixin):
                 return self._on_user_authentication_failed(request)
 
             else:
-                request.COOKIES[settings.SESSION_COOKIE_NAME] = safe_cookie_data.session_id  # Step 2
+                # UAMX: Parse cookie with quote_plus  
+                # to prevent errors with character ":" in this cookie, as it breaks Sede Electrónica
+                # See https://trello.com/c/W2nRrZFt/110-escapar-las-comillas-en-edx-platform 
+                request.COOKIES[settings.SESSION_COOKIE_NAME] = urllib.parse.quote_plus(safe_cookie_data.session_id)  # Step 2
 
                 # Save off for debugging and logging in _verify_user_and_log_mismatch
                 request.cookie_session_field = safe_cookie_data.session_id
@@ -749,7 +756,11 @@ class SafeSessionMiddleware(SessionMiddleware, MiddlewareMixin):
         )
 
         # Update the cookie's value with the safe_cookie_data.
-        cookies[settings.SESSION_COOKIE_NAME] = str(safe_cookie_data)
+        
+        # UAMX: Parse cookie with quote_plus  
+        # to prevent errors with character ":" in this cookie, as it breaks Sede Electrónica
+        # See https://trello.com/c/W2nRrZFt/110-escapar-las-comillas-en-edx-platform 
+        cookies[settings.SESSION_COOKIE_NAME] = urllib.parse.quote_plus(str(safe_cookie_data))
 
     @staticmethod
     def _get_recent_user_change_cache_key(user_id):

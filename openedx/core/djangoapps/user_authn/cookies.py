@@ -2,7 +2,7 @@
 Utility functions for setting "logged in" cookies used by subdomains.
 """
 
-
+import urllib
 import json
 import logging
 import time
@@ -197,10 +197,14 @@ def _set_deprecated_user_info_cookie(response, request, user, cookie_settings):
         }
     }
     """
+
+    # UAMX: Parse cookie with quote_plus  
+    # to prevent errors with character ":" in this cookie, as it breaks Sede Electrónica
+    # See https://trello.com/c/W2nRrZFt/110-escapar-las-comillas-en-edx-platform 
     user_info = _get_user_info_cookie_data(request, user)
     response.set_cookie(
         settings.EDXMKTG_USER_INFO_COOKIE_NAME,
-        json.dumps(user_info),
+        urllib.parse.quote_plus(json.dumps(user_info)),
         **cookie_settings
     )
 
