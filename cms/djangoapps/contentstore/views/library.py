@@ -10,6 +10,7 @@ import logging
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+
 from django.http import Http404, HttpResponseNotAllowed
 from django.utils.translation import gettext as _
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -76,7 +77,23 @@ def _user_can_create_library_for_org(user, org=None):
         org_filter_params = {}
         if org:
             org_filter_params['org'] = org
+        org_filter_params = {}
+        if org:
+            org_filter_params['org'] = org
         is_course_creator = get_course_creator_status(user) == 'granted'
+        has_org_staff_role = OrgStaffRole().get_orgs_for_user(user).filter(**org_filter_params).exists()
+        has_course_staff_role = (
+            UserBasedRole(user=user, role=CourseStaffRole.ROLE)
+            .courses_with_role()
+            .filter(**org_filter_params)
+            .exists()
+        )
+        has_course_admin_role = (
+            UserBasedRole(user=user, role=CourseInstructorRole.ROLE)
+            .courses_with_role()
+            .filter(**org_filter_params)
+            .exists()
+        )
         has_org_staff_role = OrgStaffRole().get_orgs_for_user(user).filter(**org_filter_params).exists()
         has_course_staff_role = (
             UserBasedRole(user=user, role=CourseStaffRole.ROLE)
@@ -99,6 +116,22 @@ def _user_can_create_library_for_org(user, org=None):
             return not disable_library_creation
         else:
             return not disable_course_creation
+
+
+def user_can_view_create_library_button(user):
+    """
+    Helper method for displaying the visibilty of the create_library_button.
+    """
+    return _user_can_create_library_for_org(user)
+
+
+def user_can_create_library(user, org):
+    """
+    Helper method for to check if user can create library for given org.
+    """
+    if org is None:
+        return False
+    return _user_can_create_library_for_org(user, org)
 
 
 def user_can_view_create_library_button(user):

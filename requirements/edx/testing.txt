@@ -323,6 +323,7 @@ django==4.2.20
     #   openedx-learning
     #   ora2
     #   social-auth-app-django
+    #   social-auth-app-django
     #   super-csv
     #   xblock-google-drive
     #   xss-utils
@@ -1354,6 +1355,7 @@ python3-saml==1.16.0
     # via -r requirements/edx/base.txt
 pytz==2024.2
     # via
+    #   -c requirements/edx/../constraints.txt
     #   -r requirements/edx/base.txt
     #   djangorestframework
     #   drf-yasg
@@ -1514,10 +1516,11 @@ snowflake-connector-python==3.12.2
     #   -r requirements/edx/base.txt
     #   edx-enterprise
 social-auth-app-django==5.4.1
+social-auth-app-django==5.4.1
     # via
-    #   -c requirements/edx/../constraints.txt
     #   -r requirements/edx/base.txt
     #   edx-auth-backends
+social-auth-core==4.5.4
 social-auth-core==4.5.4
     # via
     #   -r requirements/edx/base.txt
