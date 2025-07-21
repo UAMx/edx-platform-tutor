@@ -88,6 +88,9 @@ class LanguagePreferenceMiddleware(MiddlewareMixin):
             else:
                 lang_pref_helpers.unset_language_cookie(response)
         else:
+            # UAMX: fix language preference for unauthenticated users
+            # If the user is not authenticated, we set the default language cookie
+            # to the default language specified in settings.
             lang_pref_helpers.set_language_cookie(request, response, settings.LANGUAGE_CODE)
 
         return response
