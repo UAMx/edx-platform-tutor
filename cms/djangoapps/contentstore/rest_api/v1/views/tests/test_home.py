@@ -3,7 +3,9 @@ Unit tests for home page view.
 """
 import ddt
 import pytz
+import pytz
 from collections import OrderedDict
+from datetime import datetime, timedelta
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.test import override_settings
@@ -27,8 +29,10 @@ class HomePageViewTest(CourseTestCase):
         self.expected_response = {
             "allow_course_reruns": True,
             "allow_to_create_new_org": True,
+            "allow_to_create_new_org": True,
             "allow_unicode_course_id": False,
             "allowed_organizations": [],
+            "allowed_organizations_for_libraries": [],
             "allowed_organizations_for_libraries": [],
             "archived_courses": [],
             "can_access_advanced_settings": True,
@@ -45,6 +49,7 @@ class HomePageViewTest(CourseTestCase):
             "request_course_creator_url": "/request_course_creator",
             "rerun_creator_status": True,
             "show_new_library_button": True,
+            "show_new_library_v2_button": True,
             "show_new_library_v2_button": True,
             "split_studio_home": False,
             "studio_name": settings.STUDIO_NAME,
@@ -84,6 +89,17 @@ class HomePageViewTest(CourseTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertDictEqual(expected_response, response.data)
 
+    @override_settings(ORGANIZATIONS_AUTOCREATE=False)
+    def test_home_page_studio_with_org_autocreate_disabled(self):
+        """Check response content when Organization autocreate is disabled"""
+        response = self.client.get(self.url)
+
+        expected_response = self.expected_response
+        expected_response["allow_to_create_new_org"] = False
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertDictEqual(expected_response, response.data)
+
     def test_taxonomy_list_link(self):
         response = self.client.get(self.url)
         self.assertTrue(response.data['taxonomies_enabled'])
@@ -103,11 +119,13 @@ class HomePageCoursesViewTest(CourseTestCase):
         super().setUp()
         self.url = reverse("cms.djangoapps.contentstore:v1:courses")
         self.course_overview = CourseOverviewFactory.create(
+        self.course_overview = CourseOverviewFactory.create(
             id=self.course.id,
             org=self.course.org,
             display_name=self.course.display_name,
             display_number_with_default=self.course.number,
         )
+        self.non_staff_client, _ = self.create_non_staff_authed_user_client()
         self.non_staff_client, _ = self.create_non_staff_authed_user_client()
 
     def test_home_page_response(self):
@@ -134,6 +152,7 @@ class HomePageCoursesViewTest(CourseTestCase):
         print(response.data)
         self.assertDictEqual(expected_response, response.data)
 
+    @override_settings(FEATURES=FEATURES_WITH_HOME_PAGE_COURSE_V2_API)
     def test_home_page_response_with_api_v2(self):
         """Check successful response content with api v2 modifications.
 
@@ -158,6 +177,7 @@ class HomePageCoursesViewTest(CourseTestCase):
             "in_process_course_actions": [],
         }
 
+        response = self.client.get(self.url)
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)

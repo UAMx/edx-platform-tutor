@@ -318,7 +318,7 @@ class CourseOverview(TimeStampedModel):
                                 course_staff_only=tab.course_staff_only,
                                 url_slug=tab.get('url_slug'),
                                 link=tab.get('link'),
-                                is_hidden=tab.get('is_hidden', False),
+                                is_hidden=tab.get('is_hidden', False) if tab.type is not 'progress' else False,
                                 course_overview=course_overview)
                             for tab in course.tabs
                         ])

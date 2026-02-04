@@ -1500,6 +1500,7 @@ uritemplate==4.1.1
     #   google-api-python-client
 urllib3==2.2.3
     # via
+    #   -c requirements/edx/../common_constraints.txt
     #   -r requirements/edx/base.txt
     #   botocore
     #   elasticsearch
@@ -1579,7 +1580,6 @@ xblocks-contrib==0.3.0
     # via -r requirements/edx/base.txt
 xmlsec==1.3.14
     # via
-    #   -c requirements/edx/../constraints.txt
     #   -r requirements/edx/base.txt
     #   python3-saml
 xss-utils==0.7.1
