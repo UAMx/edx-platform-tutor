@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Callable, Generator
 
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -18,7 +19,7 @@ from meilisearch import Client as MeilisearchClient
 from meilisearch.errors import MeilisearchApiError, MeilisearchError
 from meilisearch.models.task import TaskInfo
 from opaque_keys import OpaqueKey
-from opaque_keys.edx.keys import UsageKey
+from opaque_keys.edx.keys import CourseKey, UsageKey
 from opaque_keys.edx.locator import (
     LibraryCollectionLocator,
     LibraryContainerLocator,
@@ -397,7 +398,60 @@ def init_index(status_cb: Callable[[str], None] | None = None, warn_cb: Callable
     reset_index(status_cb)
 
 
-def rebuild_index(status_cb: Callable[[str], None] | None = None, incremental=False) -> None:  # lint-amnesty, pylint: disable=too-many-statements
+def init_index(status_cb: Callable[[str], None] | None = None, warn_cb: Callable[[str], None] | None = None) -> None:
+    """
+    This method is depricated as of Verawood and would be removed in the future release.
+
+    Initialize the Meilisearch index, creating it and configuring it if it doesn't exist.
+
+    This is a compatibility wrapper around reconcile_index().
+    """
+    log.warning("init_index is deprecated as of Verawood and will be removed in the future release.")
+    reconcile_index(status_cb=status_cb, warn_cb=warn_cb)
+
+
+def index_course(
+    course_key: CourseKey,
+    index_name: str | None = None,
+    status_cb: Callable[[str], None] | None = None,
+) -> list[dict]:
+    """
+    Rebuilds the index for a given course.
+    """
+    store = modulestore()
+    client = _get_meilisearch_client()
+    docs = []
+    if index_name is None:
+        index_name = STUDIO_INDEX_NAME
+    if status_cb is None:
+        status_cb = log.info
+
+    # Pre-fetch the course with all of its children:
+    course = store.get_course(course_key, depth=None)
+
+    if course is None:
+        status_cb(f"Error: course {course_key} does not seem to exist! It may have been incompletely deleted.")
+        return []
+
+    def add_with_children(block):
+        """Recursively index the given XBlock/component"""
+        doc = searchable_doc_for_course_block(block)
+        doc.update(searchable_doc_tags(block.usage_key))
+        docs.append(doc)  # pylint: disable=cell-var-from-loop
+        _recurse_children(block, add_with_children)  # pylint: disable=cell-var-from-loop
+
+    # Index course children
+    _recurse_children(course, add_with_children)
+
+    if docs:
+        # Add all the docs in this course at once (usually faster than adding one at a time):
+        _wait_for_meili_task(client.index(index_name).add_documents(docs))
+    return docs
+
+
+def rebuild_index(  # pylint: disable=too-many-statements
+    status_cb: Callable[[str], None] | None = None, incremental=False
+) -> None:
     """
     Rebuild the Meilisearch index from scratch
     """
@@ -412,6 +466,8 @@ def rebuild_index(status_cb: Callable[[str], None] | None = None, incremental=Fa
     keys_indexed = []
     if incremental:
         keys_indexed = list(IncrementalIndexCompleted.objects.values_list("context_key", flat=True))
+        if keys_indexed:
+            status_cb(f"Resuming incremental index - {len(keys_indexed)} courses/libraries already indexed.")
     lib_keys = [
         lib.library_key
         for lib in lib_api.ContentLibrary.objects.select_related("org").only("org", "slug").order_by("-id")
@@ -518,7 +574,8 @@ def rebuild_index(status_cb: Callable[[str], None] | None = None, incremental=Fa
             collections = authoring_api.get_collections(library.learning_package_id, enabled=True)
             num_collections = collections.count()
             num_collections_done = 0
-            status_cb(f"{num_collections_done}/{num_collections}. Now indexing collections in library {lib_key}")
+            if num_collections:
+                status_cb(f"Now indexing {num_collections} collections in library {lib_key}")
             paginator = Paginator(collections, 100)
             for p in paginator.page_range:
                 num_collections_done = index_collection_batch(
@@ -526,15 +583,14 @@ def rebuild_index(status_cb: Callable[[str], None] | None = None, incremental=Fa
                     num_collections_done,
                     lib_key,
                 )
-            if incremental:
-                IncrementalIndexCompleted.objects.get_or_create(context_key=lib_key)
-            status_cb(f"{num_collections_done}/{num_collections} collections indexed for library {lib_key}")
+            status_cb(f"Indexed {num_collections_done}/{num_collections} collections in library {lib_key}")
 
             # Similarly, batch process Containers (units, sections, etc) in pages of 100
             containers = authoring_api.get_containers(library.learning_package_id)
             num_containers = containers.count()
             num_containers_done = 0
-            status_cb(f"{num_containers_done}/{num_containers}. Now indexing containers in library {lib_key}")
+            if num_containers:
+                status_cb(f"Now indexing {num_containers} containers in library {lib_key}")
             paginator = Paginator(containers, 100)
             for p in paginator.page_range:
                 num_containers_done = index_container_batch(
@@ -542,7 +598,9 @@ def rebuild_index(status_cb: Callable[[str], None] | None = None, incremental=Fa
                     num_containers_done,
                     lib_key,
                 )
-                status_cb(f"{num_containers_done}/{num_containers} containers indexed for library {lib_key}")
+                status_cb(f"Indexed {num_containers_done}/{num_containers} containers in library {lib_key}")
+
+            # Mark this library as indexed:
             if incremental:
                 IncrementalIndexCompleted.objects.get_or_create(context_key=lib_key)
 
@@ -552,27 +610,7 @@ def rebuild_index(status_cb: Callable[[str], None] | None = None, incremental=Fa
         status_cb("Indexing courses...")
         # To reduce memory usage on large instances, split up the CourseOverviews into pages of 1,000 courses:
 
-        def index_course(course: CourseOverview) -> list:
-            docs = []
-            # Pre-fetch the course with all of its children:
-            course = store.get_course(course.id, depth=None)
-
-            def add_with_children(block):
-                """ Recursively index the given XBlock/component """
-                doc = searchable_doc_for_course_block(block)
-                doc.update(searchable_doc_tags(block.usage_key))
-                docs.append(doc)  # pylint: disable=cell-var-from-loop
-                _recurse_children(block, add_with_children)  # pylint: disable=cell-var-from-loop
-
-            # Index course children
-            _recurse_children(course, add_with_children)
-
-            if docs:
-                # Add all the docs in this course at once (usually faster than adding one at a time):
-                _wait_for_meili_task(client.index(index_name).add_documents(docs))
-            return docs
-
-        paginator = Paginator(CourseOverview.objects.only('id', 'display_name'), 1000)
+        paginator = Paginator(CourseOverview.objects.only("id", "display_name").order_by("-created", "id"), 1000)
         for p in paginator.page_range:
             for course in paginator.page(p).object_list:
                 status_cb(
@@ -581,7 +619,7 @@ def rebuild_index(status_cb: Callable[[str], None] | None = None, incremental=Fa
                 if course.id in keys_indexed:
                     num_contexts_done += 1
                     continue
-                course_docs = index_course(course)
+                course_docs = index_course(course.id, index_name, status_cb)
                 if incremental:
                     IncrementalIndexCompleted.objects.get_or_create(context_key=course.id)
                 num_contexts_done += 1
