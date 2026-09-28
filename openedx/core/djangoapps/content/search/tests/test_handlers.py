@@ -86,7 +86,6 @@ class TestUpdateIndexHandlers(ImmediateOnCommitMixin, ModuleStoreTestCase, LiveS
         }
 
         meilisearch_client.return_value.index.return_value.update_documents.assert_called_with([doc_sequential])
-
         with freeze_time(created_date):
             vertical = self.store.create_child(self.user_id, sequential.location, "vertical", "test_vertical")
         doc_vertical = {
@@ -125,7 +124,6 @@ class TestUpdateIndexHandlers(ImmediateOnCommitMixin, ModuleStoreTestCase, LiveS
         doc_sequential["display_name"] = "Updated Sequential"
         doc_vertical["breadcrumbs"][1]["display_name"] = "Updated Sequential"
         doc_sequential["modified"] = modified_date.timestamp()
-
         meilisearch_client.return_value.index.return_value.update_documents.assert_called_with([
             doc_sequential,
             doc_vertical,

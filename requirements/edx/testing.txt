@@ -56,6 +56,7 @@ asn1crypto==1.5.1
     #   snowflake-connector-python
 astroid==3.3.11
     # via
+    #   -c requirements/edx/../constraints.txt
     #   pylint
     #   pylint-celery
 attrs==25.4.0

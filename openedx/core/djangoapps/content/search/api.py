@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Callable, Generator
 
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -443,6 +444,8 @@ def rebuild_index(status_cb: Callable[[str], None] | None = None, incremental=Fa
     keys_indexed = []
     if incremental:
         keys_indexed = list(IncrementalIndexCompleted.objects.values_list("context_key", flat=True))
+        if keys_indexed:
+            status_cb(f"Resuming incremental index - {len(keys_indexed)} courses/libraries already indexed.")
     lib_keys = [
         lib.library_key
         for lib in lib_api.ContentLibrary.objects.select_related("org").only("org", "slug").order_by("-id")
@@ -556,7 +559,8 @@ def rebuild_index(status_cb: Callable[[str], None] | None = None, incremental=Fa
             collections = authoring_api.get_collections(library.learning_package_id, enabled=True)
             num_collections = collections.count()
             num_collections_done = 0
-            status_cb(f"{num_collections_done}/{num_collections}. Now indexing collections in library {lib_key}")
+            if num_collections:
+                status_cb(f"Now indexing {num_collections} collections in library {lib_key}")
             paginator = Paginator(collections, 100)
             for p in paginator.page_range:
                 num_collections_done = index_collection_batch(
@@ -564,15 +568,14 @@ def rebuild_index(status_cb: Callable[[str], None] | None = None, incremental=Fa
                     num_collections_done,
                     lib_key,
                 )
-            if incremental:
-                IncrementalIndexCompleted.objects.get_or_create(context_key=lib_key)
-            status_cb(f"{num_collections_done}/{num_collections} collections indexed for library {lib_key}")
+            status_cb(f"Indexed {num_collections_done}/{num_collections} collections in library {lib_key}")
 
             # Similarly, batch process Containers (units, sections, etc) in pages of 100
             containers = authoring_api.get_containers(library.learning_package_id)
             num_containers = containers.count()
             num_containers_done = 0
-            status_cb(f"{num_containers_done}/{num_containers}. Now indexing containers in library {lib_key}")
+            if num_containers:
+                status_cb(f"Now indexing {num_containers} containers in library {lib_key}")
             paginator = Paginator(containers, 100)
             for p in paginator.page_range:
                 num_containers_done = index_container_batch(
@@ -580,7 +583,9 @@ def rebuild_index(status_cb: Callable[[str], None] | None = None, incremental=Fa
                     num_containers_done,
                     lib_key,
                 )
-                status_cb(f"{num_containers_done}/{num_containers} containers indexed for library {lib_key}")
+                status_cb(f"Indexed {num_containers_done}/{num_containers} containers in library {lib_key}")
+
+            # Mark this library as indexed:
             if incremental:
                 IncrementalIndexCompleted.objects.get_or_create(context_key=lib_key)
 
