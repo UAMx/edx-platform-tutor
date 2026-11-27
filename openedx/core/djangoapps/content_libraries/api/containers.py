@@ -74,7 +74,7 @@ def get_container(
     """
     [ 🛑 UNSTABLE ] Get a container (a Section, Subsection, or Unit).
     """
-    container = _get_container_from_key(container_key)
+    container = get_container_from_key(container_key)
     if include_collections:
         associated_collections = authoring_api.get_entity_collections(
             container.publishable_entity.learning_package_id,
@@ -171,7 +171,7 @@ def update_container(
     """
     [ 🛑 UNSTABLE ] Update a container (a Section, Subsection, or Unit) title.
     """
-    container = _get_container_from_key(container_key)
+    container = get_container_from_key(container_key)
     library_key = container_key.lib_key
     created = datetime.now(tz=timezone.utc)
 
@@ -262,7 +262,7 @@ def delete_container(
     No-op if container doesn't exist or has already been soft-deleted.
     """
     library_key = container_key.lib_key
-    container = _get_container_from_key(container_key)
+    container = get_container_from_key(container_key)
 
     # Fetch related collections and containers before soft-delete
     affected_collections = authoring_api.get_entity_collections(
@@ -462,7 +462,7 @@ def get_container_children_count(
     """
     [ 🛑 UNSTABLE ] Get the count of entities contained in the given container (e.g. the components/xblocks in a unit)
     """
-    container = _get_container_from_key(container_key)
+    container = get_container_from_key(container_key)
     return authoring_api.get_container_children_count(container, published=published)
 
 
@@ -584,7 +584,7 @@ def publish_container_changes(
     [ 🛑 UNSTABLE ] Publish all unpublished changes in a container and all its child
     containers/blocks.
     """
-    container = _get_container_from_key(container_key)
+    container = get_container_from_key(container_key)
     library_key = container_key.lib_key
     content_library = ContentLibrary.objects.get_by_key(library_key)  # type: ignore[attr-defined]
     learning_package = content_library.learning_package
