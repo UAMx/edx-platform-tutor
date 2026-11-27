@@ -379,9 +379,9 @@ class SafeSessionMiddleware(SessionMiddleware, MiddlewareMixin):
         if cookie_data_string:
 
             try:
-                # UAMX: "unparse" cookie with unquote_plus as we have already parsed before 
+                # UAMX: "unparse" cookie with unquote_plus as we have already parsed before
                 # to prevent errors with character ":" in this cookie, as it breaks Sede Electrónica
-                # See https://trello.com/c/W2nRrZFt/110-escapar-las-comillas-en-edx-platform 
+                # See https://trello.com/c/W2nRrZFt/110-escapar-las-comillas-en-edx-platform
                 safe_cookie_data = SafeCookieData.parse(urllib.parse.unquote_plus(cookie_data_string))  # Step 1
 
             except SafeCookieError:
@@ -390,9 +390,9 @@ class SafeSessionMiddleware(SessionMiddleware, MiddlewareMixin):
                 return self._on_user_authentication_failed(request)
 
             else:
-                # UAMX: Parse cookie with quote_plus  
+                # UAMX: Parse cookie with quote_plus
                 # to prevent errors with character ":" in this cookie, as it breaks Sede Electrónica
-                # See https://trello.com/c/W2nRrZFt/110-escapar-las-comillas-en-edx-platform 
+                # See https://trello.com/c/W2nRrZFt/110-escapar-las-comillas-en-edx-platform
                 request.COOKIES[settings.SESSION_COOKIE_NAME] = urllib.parse.quote_plus(safe_cookie_data.session_id)  # Step 2
 
                 # Save off for debugging and logging in _verify_user_and_log_mismatch
@@ -755,10 +755,10 @@ class SafeSessionMiddleware(SessionMiddleware, MiddlewareMixin):
         )
 
         # Update the cookie's value with the safe_cookie_data.
-        
-        # UAMX: Parse cookie with quote_plus  
+
+        # UAMX: Parse cookie with quote_plus
         # to prevent errors with character ":" in this cookie, as it breaks Sede Electrónica
-        # See https://trello.com/c/W2nRrZFt/110-escapar-las-comillas-en-edx-platform 
+        # See https://trello.com/c/W2nRrZFt/110-escapar-las-comillas-en-edx-platform
         cookies[settings.SESSION_COOKIE_NAME] = urllib.parse.quote_plus(str(safe_cookie_data))
 
     @staticmethod

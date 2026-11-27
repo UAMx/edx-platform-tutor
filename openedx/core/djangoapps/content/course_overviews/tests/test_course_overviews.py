@@ -1093,6 +1093,25 @@ class CourseOverviewTabTestCase(ModuleStoreTestCase):
 
     ENABLED_SIGNALS = ['course_published']
 
+    def test_progress_tab_is_visible_with_non_interned_type(self):
+        course = CourseFactory.create()
+        progress = next(tab for tab in course.tabs if tab.type == 'progress')
+        discussion = next(tab for tab in course.tabs if tab.type == 'discussion')
+        progress.is_hidden = True
+        discussion.is_hidden = True
+        progress_type = ''.join(['pro', 'gress'])
+        assert progress_type == 'progress' and progress_type is not progress.type
+
+        with (
+            mock.patch.object(progress, 'type', progress_type),
+            mock.patch.object(self.store, 'get_course', return_value=course),
+        ):
+            overview = CourseOverview.load_from_module_store(course.id)
+
+        tabs = {tab.type: tab.is_hidden for tab in overview.tab_set.all()}
+        assert tabs['progress'] is False
+        assert tabs['discussion'] is True
+
     def test_tabs_deletion_rollback_on_integrity_error(self):
         """
         Tests that course_overview tabs deletion is correctly rolled back if an Exception
