@@ -10780,7 +10780,6 @@ paths:
       in: path
       required: true
       type: string
-<<<<<<< HEAD
   /xblock/v2/xblocks/{usage_key}/olx/:
     get:
       operationId: xblock_v2_xblocks_olx_list
@@ -10796,8 +10795,6 @@ paths:
       in: path
       required: true
       type: string
-=======
->>>>>>> uamx/sumac.3
   /xblock/v2/xblocks/{usage_key}/view/{view_name}/:
     get:
       operationId: xblock_v2_xblocks_view_read
